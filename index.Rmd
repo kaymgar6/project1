@@ -19,14 +19,19 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Kayla Garza, kmg4327
 
 #### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+The two datasets I have selected are one I created titled 'netflix_history' that went back to August 2015 and created a set until end of July 2017 (roughly two years of data). This first set has 1,310 entries with a row at the top with rownames and had a column that determined what day of the week the date something was watch on was (monday, tuesday, etc). My second dataset is titled 'austin_weather' and has the weather report for each day from the same time frame as netflix_history. It includes columns/variables for avgTemp, avgHumidity and whether an event like rain or snow occured on that day. 
+This is interesting to me because I have always used TV as an escape from my reality and I knew I watched a lot over the 6 years I have been on Netflix but its so interesting to me to see how much I actually watch. I wanted to see how the weather affected the amount I watched and if the day of the week played into anything considering I was in my first two years of high school during this time period.
 
 ```{R}
 # read your datasets in here, e.g., with read_csv()
+library(tidyverse)
+netflix <- read_csv("netflix_history.csv")
+weather <- read_csv("austin_weather.csv")
+
 
 ```
 
@@ -36,6 +41,7 @@ If your datasets are tidy already, demonstrate that you can reshape data with pi
 
 ```{R}
 # your tidying code (if applicable; can also wait until wrangling section)
+#waiting until wrangling section
 ```
 
     
@@ -43,48 +49,108 @@ If your datasets are tidy already, demonstrate that you can reshape data with pi
 
 ```{R}
 # your joining code
-
-# your joining code
+mergedData <- left_join(netflix, weather, by="Date")
+nrow(mergedData)
+n_distinct(mergedData)
+view(mergedData)
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+There were 1311 observations in 'netflix' and 729 observations/rows in 'weather' and I joined by date to see how the weather affects the number of shows I watch in a day. No observations were dropped after the join from 'netflix' but rows from "weather" on days I didnt watch netflix were lost. I choose a left join because I wanted the joined data to have the same number of observations/rows as 'netflix' so the size of mergedData is the sme number of rows as netflix and the same number of columns of weather + 2.
 
 ####  Wrangling
 
 ```{R}
 # your wrangling code
+#remove unnecessary columns
+mergedData <- mergedData %>% select(`Title of Show`, Date, `Day of Week`, TempAvgF, DewPointAvgF, HumidityAvgPercent, Events)
 
-# your wrangling code
+# create the total in a single day variable
+#totalInOneDay <- mergedData %>% group_by(Date) %>% summarise(n = n())
+#totalInOneDay
 
-# your wrangling code
+mergedData <- mergedData %>% group_by(Date) %>% mutate(totalInOneDay = n())
+view(mergedData)
+#replace all numerical values for days to strings
+mergedData <- mergedData %>% mutate(`Day of Week` = str_replace_all(`Day of Week`, "1","Sun"), `Day of Week` = str_replace_all(`Day of Week`, "2","Mon"), `Day of Week` = str_replace_all(`Day of Week`, "3","Tues"), `Day of Week` = str_replace_all(`Day of Week`, "4","Wed"), `Day of Week` = str_replace_all(`Day of Week`, "5","Thurs"), `Day of Week` = str_replace_all(`Day of Week`, "6","Fri"), `Day of Week` = str_replace_all(`Day of Week`, "7","Sat"))
+
+#using filter, arrange, group_by and summarize to explore the data
+#filter for hottest days
+hotDays <- mergedData %>% filter(TempAvgF > 90)
+hotDays
+#arrange date by greatest to least totalInOneDay
+maxNum <- mergedData %>% arrange(desc(totalInOneDay))
+maxNum
+#see how many times things were watched on each day of the week
+mostDay <- mergedData %>% group_by(`Day of Week`) %>% summarise(TotalDay = n())
+mostDay
+mergedData %>% group_by(`Title of Show`) %>% summarise(n = n())
+mergedData %>% group_by(TempAvgF) %>% summarise(n = n())
+mergedData %>% group_by(DewPointAvgF) %>% summarise(n = n())
+mergedData %>% group_by(HumidityAvgPercent) %>% summarise(n = n())
+mergedData %>% group_by(Events) %>% summarise(n = n())
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+This is the main part of the wrangling section. I used all 6 core dplyr functions to explore my data. I mutated my dataset to add a column that counted the number of shows/movies I watched in a day, as well as using mutate to 'rename' the days of the week. In the end, I went through my data to find the entries on the hottest days of the roughly two year time frame, I found which day I watched the most on and by how much, and I looked into seeing which day of the week I watched the most netflix on. The last couple lines of code are counting each variable and its frequency and I find it intersting that besides only watching every entry only once, there were more more foggy days (35) than thunderstorms alone (23) that I watched netflix.
+
+```{R}
+# your wrangling code
+mergedData %>% group_by(totalInOneDay, `Day of Week`) %>% summarise(avgTemp = mean(TempAvgF), maxDew = max(DewPointAvgF), stdHumidity = sd(HumidityAvgPercent), count = n(), se = stdHumidity/sqrt(count)) -> table1
+table1
+mergedData %>% summarise_all(function(x) sum(is.na(x)))
+```
+
+In this section I used dplyr to create summary statistics for each of my numeric variables and summed up all the NA's in each column of my dataset.
+
+```{R}
+# your wrangling code
+library(gt)
+table1 %>% group_by(`Day of Week`) %>% gt %>% tab_header(title=md("**Summary Statistics**"), subtitle=md("A table of my `mergedData` summary statistics")) %>%
+  tab_spanner(label="Variables", columns=c("avgTemp","maxDew","stdHumidity","count","se"))
+table2 <- table1 %>% pivot_longer(c("stdHumidity","se"), names_to="Statistical Vars",values_to="Values")
+table2
+```
+
+In this section I made a couple of tables with the data from the previous section. The 'gt' function made the table look great and I was able to 'pivot_longer' to group the variables that depend on standard deviation (sd).
 
 
 #### Visualizing
 
+
+
+Create 3 effective, polished plots with ggplot (30 pts)
+
+Each plot should have at least 2 geometry layers and at least 2 aesthetic mappings
+Each plot should have a title and clean labeling for all mappings
+Modify the default theme and scales at least once per plot
+For at least one plot, add more tick marks (x, y, or both) than are given by default
+For at least one plot, use the stat=“summary” function
+Write a supporting paragraph (for each plot) describing what the plot depicts and any relationships/trends that are apparent (9 pts)
+
 ```{R}
 # your plot 1
+mergedData %>% ggplot(aes(Date, totalInOneDay, fill = `Day of Week`)) + geom_bar(stat = "summary") + labs(x = "Dates") + ggtitle("Total Entries For Each Day of the Week") + guides(fill = FALSE) + scale_y_continuous(breaks = seq(0,20,5) , name = "Frequency")  + theme(legend.position = "right")
+
 ```
 
-Your discussion of plot 1
+Plot 1 is a bar plot to see how the frequency/amount of entries in a single day correspond to the dates and each color is a different day of the week. From this plot we see that most days I watched 5 or less entries.
 
 ```{R}
 # your plot 2
+mergedData %>% ggplot() + geom_density2d_filled(aes(TempAvgF,totalInOneDay)) + labs(x = "Average Temperature (F)", y= "Frequency") + ggtitle("Density Map for Temperature vs Total in a Single Day")
 ```
 
-Your discussion of plot 2
+Plot 2 is a density map correlating temperature and the frequency of entries in a single day. From this we see that the highest density is on days with higher temps and about 10 entries in a day. We see that the lowest density are in lower temps regardless of frequency.
 
 ```{R}
 # your plot 3
+mergedData %>% drop_na(Events) %>% ggplot(aes(Date, totalInOneDay, color = Events)) + geom_point(inherit.aes = TRUE) + ggtitle("Total of Entries Over Time/Dates") + labs(x = "Dates", y = "Frequency") + geom_line(aes(Date, totalInOneDay, color = Events)) + theme(legend.position = "right")
 ```
 
-Your discussion of plot 3
+Plot 3 is a scatterplot to see how natural events affect the frequency of entries across the entire 2 year time period. After dropping the NAs we see that there are more occurances of Rain with Thunderstorms across time.
 
 #### Concluding Remarks
 
-If any!
+I really enjoyed this project and loved looking back in time in my netflix history and its crazy to see what I was watching when I first got my own netflix profile off my family one that started in 2012. I'm intrigued to see more viewing histories like hulu and disney+ as well!
 
 
 
